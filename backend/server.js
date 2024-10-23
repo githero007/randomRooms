@@ -68,8 +68,8 @@ io.on('connection', (socket) => {
         socket.emit('question', `shall i ${room[0].question}`);
     })
     socket.on('sendMsg', (sendMessage) => {
-        console.log(roomId);
-        socket.to(roomId).emit('recieveMsg', sendMessage);
+        console.log(roomIndex);
+        socket.to(rooms[roomIndex].room).emit('recieveMsg', sendMessage);
         console.log('messages event triggered');
     })
 });

@@ -76,6 +76,7 @@
         }
 
         socket.on('recieveMsg', (message) => { // Corrected spelling from 'recieveMsg' to 'receiveMsg'
+            console.log(`recieving message ${message}`);
             const prevMsg = document.getElementById('prevMsg');
             prevMsg.innerHTML += `<p>${message}</p>`; // Append new messages// Display messages as paragraphs
         });
