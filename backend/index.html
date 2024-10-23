@@ -19,7 +19,8 @@
     <div id="messages">
     </div>
     <div class="chat">
-        <p class="prevMsg">
+        <p id="prevMsg">
+            all your chat logs will appear here
         </p>
         <input type="text" name="" placeholder="enter your message" id="message">
         <button id="messageBtn">send button</button>
@@ -69,14 +70,14 @@
             }
             else {
                 console.log(sendMessage);
-                socket.emit('sendMessage', sendMessage);
+                socket.emit('sendMsg', sendMessage);
                 document.getElementById('message').value = "";
             }
         }
 
-        socket.on('receiveMsg', (message) => { // Corrected spelling from 'recieveMsg' to 'receiveMsg'
+        socket.on('recieveMsg', (message) => { // Corrected spelling from 'recieveMsg' to 'receiveMsg'
             const prevMsg = document.getElementById('prevMsg');
-            prevMsg.innerHTML += `<p>${message}</p>`; // Display messages as paragraphs
+            prevMsg.innerHTML += `<p>${message}</p>`; // Append new messages// Display messages as paragraphs
         });
 
         socket.on('roomJoined', (roomId) => {
@@ -92,11 +93,7 @@
             const questionDiv = document.getElementById('askQuestion');
             questionDiv.innerHTML += `<p> ${question}</p>`
         })
-        socket.on('recieveMsg', (message) => {
-            const a = document.getElementById('prevMsg').innerHTML;
-            a += message;
-            document.getElementById('prevMsg').innerHTML = a;
-        })
+
 
         socket.on('error', (errorMessage) => {
             const messagesDiv = document.getElementById('messages');

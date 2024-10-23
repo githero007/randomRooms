@@ -51,9 +51,9 @@ io.on('connection', (socket) => {
     });
     socket.on('leaveroom', (userName) => {
         if (rooms.length == 0) return socket.emit('error', 'no room was found to join');
-        const roomId = rooms[roomIndex].room;
+        console.log(roomIndex);
         rooms[roomIndex].members--;
-        socket.to(roomId).emit('leftRoom', `The user ${userName} left the room. ${rooms[roomIndex].members} members are present in the room`);
+        socket.to(rooms[roomIndex].room).emit('leftRoom', `The user ${userName} left the room. ${rooms[roomIndex].members} members are present in the room`);
         socket.leave(roomId);
         currentRoom = null;
     });
@@ -64,10 +64,12 @@ io.on('connection', (socket) => {
         socket.emit('roomJoined', `you created the room`);
         socket.to(roomId).emit('roomJoined', `  ${room[0].members}  members are present in the room`);
         currentRoom = 1;
+        roomIndex = rooms.findIndex(rm => rm.room === roomId);
         socket.emit('question', `shall i ${room[0].question}`);
     })
-    socket.on('sendMessage', (sendMessage) => {
-        socket.to(roomId).emit('recieveMessage', sendMessage);
+    socket.on('sendMsg', (sendMessage) => {
+        console.log(roomId);
+        socket.to(roomId).emit('recieveMsg', sendMessage);
         console.log('messages event triggered');
     })
 });
