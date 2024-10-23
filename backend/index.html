@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Room Example</title>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body>
+    <div class="createRoomDiv">
+        <input type="text" id="question" placeholder="ask sth">
+        <button id="createRoom">Create Room</button>
+    </div>
+    <button id="joinRandomRoom">Join Random Room</button>
+    <button id="leaveRoom">Leave Room</button>
+    <div id="askQuestion"></div>
+    <div id="messages">
+    </div>
+    <div class="chat">
+        <p class="prevMsg">
+        </p>
+        <input type="text" name="" placeholder="enter your message" id="message">
+        <button id="messageBtn">send button</button>
+    </div>
+
+    <script>
+        const socket = io();
+        let counter = 0;
+        document.getElementById('createRoom').onclick = async function () {
+            const questions = document.getElementById('question').value;
+            console.log(questions);
+            const response = await fetch('/create', {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ question: questions })
+            });
+            counter++;
+            const data = await response.json();
+            createRoomId = data.roomId;
+            socket.emit('createRoom', createRoomId);
+            console.log(createRoomId);
+            alert(`Room created with ID: ${data.roomId}`);
+            document.querySelector('.createRoomDiv').style.display = "none";
+        }
+
+        document.getElementById('joinRandomRoom').onclick = function () {
+            socket.emit('joinRoom');
+            document.querySelector('.createRoomDiv').style.display = "none";
+        };
+
+        document.getElementById('leaveRoom').onclick = function () {
+            const userName = prompt("Enter your name:") || "Anonymous";
+            counter--;
+            console.log
+            socket.emit('leaveroom', userName);
+            document.querySelector('.createRoomDiv').style.display = "block";
+            console.log('hi why i aint visible');
+        };
+        document.getElementById('messageBtn').onclick = function () {
+            const sendMessage = document.getElementById('message').value;
+
+            if (sendMessage.length == 0) {
+                alert("the message is empty please send something");
+                return;
+            }
+            else {
+                console.log(sendMessage);
+                socket.emit('sendMessage', sendMessage);
+                document.getElementById('message').value = "";
+            }
+        }
+
+        socket.on('receiveMsg', (message) => { // Corrected spelling from 'recieveMsg' to 'receiveMsg'
+            const prevMsg = document.getElementById('prevMsg');
+            prevMsg.innerHTML += `<p>${message}</p>`; // Display messages as paragraphs
+        });
+
+        socket.on('roomJoined', (roomId) => {
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.innerHTML += `<p>You have joined room: ${roomId}</p>`;
+        });
+
+        socket.on('leftRoom', (message) => {
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.innerHTML += `<p>${message}</p>`;
+        });
+        socket.on('question', (question) => {
+            const questionDiv = document.getElementById('askQuestion');
+            questionDiv.innerHTML += `<p> ${question}</p>`
+        })
+        socket.on('recieveMsg', (message) => {
+            const a = document.getElementById('prevMsg').innerHTML;
+            a += message;
+            document.getElementById('prevMsg').innerHTML = a;
+        })
+
+        socket.on('error', (errorMessage) => {
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.innerHTML += `<p>Error: ${errorMessage}</p>`;
+        });
+    </script>
+</body>
+
+</html>
