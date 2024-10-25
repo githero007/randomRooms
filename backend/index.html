@@ -9,6 +9,9 @@
 </head>
 
 <body>
+    <div id="inputName">
+        <input type="text" name="" id="nameHolder" placeholder="enter your name to join a room">
+    </div>
     <div class="createRoomDiv">
         <input type="text" id="question" placeholder="ask sth">
         <button id="createRoom">Create Room</button>
@@ -17,20 +20,29 @@
     <button id="leaveRoom">Leave Room</button>
     <div id="askQuestion"></div>
     <div id="messages">
+        all your chat logs will appear here
     </div>
     <div class="chat">
         <p id="prevMsg">
-            all your chat logs will appear here
+
         </p>
         <input type="text" name="" placeholder="enter your message" id="message">
         <button id="messageBtn">send button</button>
     </div>
-
+    <div id="voting">
+        <div class="pieChart"></div>
+        <button class="vote">yes</button>
+        <button class="vote">no</button>
+    </div>
     <script>
         const socket = io();
+        let name;
         let counter = 0;
+        document.getElementById('leaveRoom').style.display = "none";
+        document.querySelector('.chat').style.display = "none";
         document.getElementById('createRoom').onclick = async function () {
             const questions = document.getElementById('question').value;
+            name = document.getElementById('nameHolder').value;
             console.log(questions);
             const response = await fetch('/create', {
                 method: "POST",
@@ -42,26 +54,55 @@
             counter++;
             const data = await response.json();
             createRoomId = data.roomId;
-            socket.emit('createRoom', createRoomId);
+            socket.emit('createRoom', createRoomId, name);
             console.log(createRoomId);
             alert(`Room created with ID: ${data.roomId}`);
             document.querySelector('.createRoomDiv').style.display = "none";
+            document.getElementById('joinRandomRoom').style.display = "none";
+            name = ``;
+            document.getElementById('nameHolder').style.display = "none";
+            document.getElementById('leaveRoom').style.display = "block";
+            document.querySelector('.chat').style.display = "block";
+
         }
 
         document.getElementById('joinRandomRoom').onclick = function () {
-            socket.emit('joinRoom');
+            name = document.getElementById('nameHolder').value;
+            socket.emit('joinRoom', name);
+            counter++;
             document.querySelector('.createRoomDiv').style.display = "none";
+            document.getElementById('joinRandomRoom').style.display = "none";
+            document.querySelector('.chat').style.display = "block";
+            document.getElementById('leaveRoom').style.display = "block";
+            name = ``;
+            document.getElementById('nameHolder').style.display = "none";
         };
 
         document.getElementById('leaveRoom').onclick = function () {
-            const userName = prompt("Enter your name:") || "Anonymous";
             counter--;
-            console.log
-            socket.emit('leaveroom', userName);
+            console.log;
+            socket.emit('leaveroom', name);
             document.querySelector('.createRoomDiv').style.display = "block";
-            console.log('hi why i aint visible');
+            document.getElementById('joinRandomRoom').style.display = "block";
+            document.getElementById("")
+            document.querySelector('.chat').style.display = "none";
+            document.getElementById('prevMsg').style.display = "none";
+            document.getElementById('leaveRoom').style.display = "none";
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.innerHTML = ``;
+            const questionDiv = document.getElementById('askQuestion');
+            questionDiv.innerHTML = ``;
+            document.getElementById('nameHolder').style.display = "block";
         };
+
         document.getElementById('messageBtn').onclick = function () {
+            sendMessage();
+        };
+        document.getElementById('message').addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') sendMessage();
+        })
+
+        function sendMessage() {
             const sendMessage = document.getElementById('message').value;
 
             if (sendMessage.length == 0) {
@@ -70,32 +111,56 @@
             }
             else {
                 console.log(sendMessage);
-                socket.emit('sendMsg', sendMessage);
+                socket.emit('sendMsg', name, sendMessage);
+                const prevMsg = document.getElementById('prevMsg');
+                prevMsg.innerHTML += `<p className = "myMessages"> me : ${sendMessage}</p>`;
                 document.getElementById('message').value = "";
             }
         }
+        const buttons = document.querySelectorAll('.vote');
 
-        socket.on('recieveMsg', (message) => { // Corrected spelling from 'recieveMsg' to 'receiveMsg'
+        buttons.forEach(button => {
+            button.onclick = function () {
+                const vote = button.innerHTML;
+                if (vote === 'yes') {
+                    socket.emit('vote', 'yes');
+                } else {
+                    socket.emit('vote', 'no');
+                }
+            };
+        });
+
+        socket.on('recieveMsg', (name, message) => { // Corrected spelling from 'recieveMsg' to 'receiveMsg'
             console.log(`recieving message ${message}`);
             const prevMsg = document.getElementById('prevMsg');
-            prevMsg.innerHTML += `<p>${message}</p>`; // Append new messages// Display messages as paragraphs
+            prevMsg.innerHTML += `<p className = "otherMessage">${name}:${message}</p>`; // Append new messages// Display messages as paragraphs
         });
 
-        socket.on('roomJoined', (roomId) => {
+        socket.on('roomJoined', (name, members) => {
             const messagesDiv = document.getElementById('messages');
-            messagesDiv.innerHTML += `<p>You have joined room: ${roomId}</p>`;
+            console.log(name);
+            messagesDiv.innerHTML += `<p>${name} joined room: ${members} are present in the curent room</p>`;
         });
 
-        socket.on('leftRoom', (message) => {
+        socket.on('leftRoom', (name, members) => {
             const messagesDiv = document.getElementById('messages');
-            messagesDiv.innerHTML += `<p>${message}</p>`;
+            console.log(name);
+            console.log(members);
+            messagesDiv.innerHTML += `<p>${name} left the room : ${members} are present in the room</p>`;
+
         });
         socket.on('question', (question) => {
             const questionDiv = document.getElementById('askQuestion');
             questionDiv.innerHTML += `<p> ${question}</p>`
         })
-
-
+        socket.on('recVote', (yes, no) => {
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.innerHTML += `${yes} has voted yes and ${no} has voted no`;
+        })
+        socket.on('timeout', () => {
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.innerHTML += `<bold> the room is about to expire</bold> and this chat will end`;
+        })
         socket.on('error', (errorMessage) => {
             const messagesDiv = document.getElementById('messages');
             messagesDiv.innerHTML += `<p>Error: ${errorMessage}</p>`;
