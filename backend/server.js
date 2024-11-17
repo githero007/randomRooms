@@ -93,7 +93,7 @@ io.on('connection', (socket) => {
 
         })
         socket.on('sendMsg', (name, sendMessage) => {
-            console.log(roomIndex);
+            console.log(name);
             socket.to(rooms[roomIndex].room).emit('recieveMsg', name, sendMessage);
             console.log('messages event triggered');
         })

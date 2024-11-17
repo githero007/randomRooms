@@ -59,7 +59,6 @@
             alert(`Room created with ID: ${data.roomId}`);
             document.querySelector('.createRoomDiv').style.display = "none";
             document.getElementById('joinRandomRoom').style.display = "none";
-            name = ``;
             document.getElementById('nameHolder').style.display = "none";
             document.getElementById('leaveRoom').style.display = "block";
             document.querySelector('.chat').style.display = "block";
@@ -74,7 +73,6 @@
             document.getElementById('joinRandomRoom').style.display = "none";
             document.querySelector('.chat').style.display = "block";
             document.getElementById('leaveRoom').style.display = "block";
-            name = ``;
             document.getElementById('nameHolder').style.display = "none";
         };
 
@@ -96,13 +94,13 @@
         };
 
         document.getElementById('messageBtn').onclick = function () {
-            sendMessage();
+            sendMessage(name);
         };
         document.getElementById('message').addEventListener('keypress', (event) => {
-            if (event.key === 'Enter') sendMessage();
+            if (event.key === 'Enter') sendMessage(name);
         })
 
-        function sendMessage() {
+        function sendMessage(name) {
             const sendMessage = document.getElementById('message').value;
 
             if (sendMessage.length == 0) {
@@ -111,6 +109,7 @@
             }
             else {
                 console.log(sendMessage);
+                console.log(name);
                 socket.emit('sendMsg', name, sendMessage);
                 const prevMsg = document.getElementById('prevMsg');
                 prevMsg.innerHTML += `<p className = "myMessages"> me : ${sendMessage}</p>`;
@@ -130,10 +129,11 @@
             };
         });
 
-        socket.on('recieveMsg', (name, message) => { // Corrected spelling from 'recieveMsg' to 'receiveMsg'
+        socket.on('recieveMsg', (name, message) => {
+            console.log(name);
             console.log(`recieving message ${message}`);
             const prevMsg = document.getElementById('prevMsg');
-            prevMsg.innerHTML += `<p className = "otherMessage">${name}:${message}</p>`; // Append new messages// Display messages as paragraphs
+            prevMsg.innerHTML += `<p class = "otherMessage"> ${name}:${message}</p>`;
         });
 
         socket.on('roomJoined', (name, members) => {
