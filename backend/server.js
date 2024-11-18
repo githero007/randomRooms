@@ -1,4 +1,6 @@
 const express = require('express');
+const connectMongo = require('./db');
+const Room = require('./room');
 const { createServer } = require('node:http');
 const { join } = require('node:path');
 const { Server } = require('socket.io');
@@ -8,93 +10,107 @@ const io = new Server(server);
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const { time } = require('node:console');
-app.use(express.json());
+const room = require('./room');
+app.use(express.json()); ``
+app.use(express.static(join(__dirname, 'public')));
 let roomId = "";
-let rooms = [];
+connectMongo;
 app.get('/', async (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 })
-app.post('/create', (req, res) => {
+app.post('/create', async (req, res) => {
     roomId = uuidv4();
     const question = req.body.question;
-    console.log(question);
-    rooms.push({ room: roomId, members: 0, question: question, yes: 0, no: 0, votedUser: new Set() });
+    const newRoom = new Room({ room: roomId, members: 0, question: question, yes: 0, no: 0 })
+    try {
+        const savedRoom = await newRoom.save();
+        console.log('Room created:', savedRoom);
+    } catch (err) {
+        console.error('Error creating room:', err);
+    }
     res.send({ roomId });
 });
-function getRandomIndex(arr) {
-    if (arr.length === 0) return null; // Return null if the array is empty
-    const randomIndex = Math.floor(Math.random() * arr.length);
-    return randomIndex;
-}
-let voteCounter = 0;
-io.on('connection', (socket) => {
-    console.log('a user connected');
-    let roomIndex = null;
-    let currentRoom = null;
+async function getRandomRoom() {
     try {
-        socket.on('joinRoom', (name) => {
-            const randomIndex = getRandomIndex(rooms);
-            roomIndex = randomIndex;
+        const randomRoom = await Room.aggregate([{ $sample: { size: 1 } }]); // Randomly select 1 room
+        return randomRoom[0]; // Return the first room (since only one is selected)
+    } catch (err) {
+        console.error('Error fetching random room:', err);
+    }
+}
+
+io.on('connection', (socket) => {
+    let randomRoom = null;
+    let currentRoom = null;
+    console.log('a user connected');
+
+    try {
+        socket.on('joinRoom', async (name) => {
+            randomRoom = await getRandomRoom();
             if (currentRoom != null) { return socket.emit('roomJoined', "already in a room"); }
-            if (randomIndex != null) {
-                const roomId = rooms[randomIndex].room;
-                rooms[randomIndex].members += 1;
+            if (randomRoom != null) {
+                const roomId = randomRoom.room;
+                randomRoom.members += 1;
+                await Room.findOneAndUpdate({
+                    room: randomRoom.room
+                }, {
+                    members: randomRoom.members
+                }
+
+                )
                 socket.join(roomId);
                 console.log(`Socket ${socket.id} joined room `);
                 console.log(name);
-                socket.emit('roomJoined', name, rooms[randomIndex].members);
-                socket.to(roomId).emit('roomJoined', name, rooms[randomIndex].members);
+                socket.emit('roomJoined', name, randomRoom.members);
+                socket.to(roomId).emit('roomJoined', name, randomRoom.members);
                 currentRoom = 1;
-                socket.emit('question', `shall i ${rooms[randomIndex].question}`);
+                socket.emit('question', `shall i ${randomRoom.question}`);
             }
             else {
                 socket.emit('error', "no room was found");
 
             }
         });
-        socket.on('leaveroom', (name) => {
-            if (rooms.length == 0) return socket.emit('error', 'no room was found to join');
-            console.log(roomIndex);
-            rooms[roomIndex].members--;
-            socket.to(rooms[roomIndex].room).emit('leftRoom', name, rooms[roomIndex].members);
+        socket.on('leaveroom', async (name) => {
+            if (randomRoom == null) return socket.emit('error', 'no room was found to join');
+            console.log(randomRoom);
+            randomRoom.members--;
+            await Room.findOneAndUpdate({
+                room: randomRoom.room
+            }, {
+                members: randomRoom.members
+            })
+            socket.to(randomRoom.room).emit('leftRoom', name, randomRoom.members);
             socket.leave(roomId);
-            if (rooms[roomIndex].members === 0) {
-                rooms.splice(roomIndex, 1);
-            }
             currentRoom = null;
         });
-        socket.on('createRoom', (roomId, name) => {
+        socket.on('createRoom', async (roomId, name) => {
             socket.join(roomId);
             console.log(name);
-            roomIndex = rooms.findIndex((rm) => rm.room === roomId);
-            rooms[roomIndex].members++;
-            socket.emit('roomJoined', name, rooms[roomIndex].members);
+            randomRoom = await Room.findOne({ room: roomId });
+            randomRoom.members++;
+            await Room.findOneAndUpdate({
+                room: randomRoom.room
+            }, {
+                members: randomRoom.members
+            })
+            socket.emit('roomJoined', name, randomRoom.members);
             currentRoom = 1;
-            roomIndex = rooms.findIndex(rm => rm.room === roomId);
-            socket.emit('question', `shall i ${rooms[roomIndex].question}`);
-            const timeoutId = setTimeout(() => {
-                socket.emit('timeOut');
-                io.to(roomId).disconnectSockets();
-                console.log('closing the room');
-            }, 10 * 100 * 1000);
-            socket.on('disconnect', () => {
-                clearTimeout(timeoutId); // Clear the timeout if the user disconnects
-            });
+            socket.emit('question', `shall i ${randomRoom.question}`);
         })
-        socket.on('vote', (vote) => {
-            if (rooms[roomIndex].votedUser.has(socket.id)) {
-                socket.emit('error', `oops you can only vote once`);
-                return;
-            }
-            rooms[roomIndex].votedUser.add(socket.id);
-            if (vote == 'yes') rooms[roomIndex].yes++;
-            else rooms[roomIndex].no++;
-            socket.emit('recVote', rooms[roomIndex].yes, rooms[roomIndex].no);
+        socket.on('vote', async (vote) => {
+            console.log(vote);
+            await Room.updateOne(
+                { room: randomRoom.room },
+                { $inc: { yes: vote === 'yes' ? 1 : 0, no: vote === 'no' ? 1 : 0 } }
+            );
+            randomRoom = await Room.findOne({ room: roomId });
+            socket.emit('recVote', randomRoom.yes, randomRoom.no);
+            socket.to(randomRoom.room).emit('recVote', randomRoom.yes, randomRoom.no);
 
         })
         socket.on('sendMsg', (name, sendMessage) => {
-            console.log(name);
-            socket.to(rooms[roomIndex].room).emit('recieveMsg', name, sendMessage);
+            socket.to(randomRoom.room).emit('recieveMsg', name, sendMessage);
             console.log('messages event triggered');
         })
     } catch (error) {

@@ -5,7 +5,154 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Random Room Example</title>
-    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        /* General Reset */
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+
+        /* Input and Buttons */
+        input[type="text"] {
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            width: 90%;
+            display: block;
+            margin: 0 auto;
+            box-sizing: border-box;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            color: white;
+            background-color: #007bff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            display: block;
+            margin: 10px auto;
+            box-sizing: border-box;
+        }
+
+        button:hover {
+            background-color: #3e4145;
+        }
+
+        #createRoom,
+        #joinRandomRoom,
+        #messageBtn {
+            width: 30%;
+        }
+
+        #leaveRoom:hover {
+            background-color: red;
+        }
+
+        /* Chat Area */
+        .chat {
+            background-color: #ffffff;
+            display: flex;
+            border: 1px solid #ccc;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px auto;
+            width: 90%;
+            max-width: 600px;
+        }
+
+        .chat p {
+            margin: 0 0 10px;
+        }
+
+        /* Messages */
+        #messages {
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+            height: 300px;
+            overflow-y: scroll;
+            margin: 20px auto;
+            width: 40%;
+            max-width: 600px;
+            border: 1px solid #ccc;
+        }
+
+        #yes {
+            background-color: #28a745;
+        }
+
+        /* Voting Section */
+        #voting {
+            margin: 20px auto;
+            padding: 10px;
+            text-align: center;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .vote {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #ff0019;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            display: inline-block;
+        }
+
+        .vote:nth-child(2) {
+            background-color: #ff0019;
+        }
+
+        .vote:hover {
+            opacity: 0.9;
+        }
+
+        /* Question Section */
+        #askQuestion {
+            background-color: #ffc107;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px auto;
+            width: 40%;
+            max-width: 600px;
+            color: black;
+            text-align: center;
+            font-weight: 900;
+        }
+
+        .voter-container {
+            display: flexbox;
+        }
+
+        /* Responsive Adjustments */
+        @media screen and (max-width: 600px) {
+
+            button,
+            input[type="text"] {
+                width: 100%;
+            }
+
+            .chat,
+            #messages,
+            #askQuestion {
+                width: 95%;
+            }
+
+            .createRoomDiv {
+                display: flex;
+            }
+        }
+    </style>
+
 </head>
 
 <body>
@@ -21,28 +168,36 @@
     <div id="askQuestion"></div>
     <div id="messages">
         all your chat logs will appear here
+        <div id="vote"></div>
     </div>
     <div class="chat">
         <p id="prevMsg">
 
         </p>
+        <p class="myMessages"></p>
         <input type="text" name="" placeholder="enter your message" id="message">
         <button id="messageBtn">send button</button>
     </div>
-    <div id="voting">
-        <div class="pieChart"></div>
-        <button class="vote">yes</button>
+    <div class="voter-container" id="voting">
+        <button class="vote" id="yes">yes</button>
         <button class="vote">no</button>
     </div>
+    <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
         let name;
         let counter = 0;
         document.getElementById('leaveRoom').style.display = "none";
         document.querySelector('.chat').style.display = "none";
+        document.getElementById('voting').style.display = "none";
+
         document.getElementById('createRoom').onclick = async function () {
             const questions = document.getElementById('question').value;
             name = document.getElementById('nameHolder').value;
+            if (name == "") {
+                alert("you cant join without username");
+                return;
+            }
             console.log(questions);
             const response = await fetch('/create', {
                 method: "POST",
@@ -62,11 +217,17 @@
             document.getElementById('nameHolder').style.display = "none";
             document.getElementById('leaveRoom').style.display = "block";
             document.querySelector('.chat').style.display = "block";
+            document.getElementById('voting').style.display = "block";
 
         }
 
         document.getElementById('joinRandomRoom').onclick = function () {
             name = document.getElementById('nameHolder').value;
+            console.log(name);
+            if (name == "") {
+                alert("you cant join without username");
+                return;
+            }
             socket.emit('joinRoom', name);
             counter++;
             document.querySelector('.createRoomDiv').style.display = "none";
@@ -74,18 +235,21 @@
             document.querySelector('.chat').style.display = "block";
             document.getElementById('leaveRoom').style.display = "block";
             document.getElementById('nameHolder').style.display = "none";
+            document.getElementById('voting').style.display = "block";
         };
 
         document.getElementById('leaveRoom').onclick = function () {
             counter--;
             console.log;
             socket.emit('leaveroom', name);
+            document.getElementById('nameHolder').style.display = "block";
             document.querySelector('.createRoomDiv').style.display = "block";
             document.getElementById('joinRandomRoom').style.display = "block";
             document.getElementById("")
             document.querySelector('.chat').style.display = "none";
             document.getElementById('prevMsg').style.display = "none";
             document.getElementById('leaveRoom').style.display = "none";
+            document.getElementById('voting').style.display = "none";
             const messagesDiv = document.getElementById('messages');
             messagesDiv.innerHTML = ``;
             const questionDiv = document.getElementById('askQuestion');
@@ -112,7 +276,7 @@
                 console.log(name);
                 socket.emit('sendMsg', name, sendMessage);
                 const prevMsg = document.getElementById('prevMsg');
-                prevMsg.innerHTML += `<p className = "myMessages"> me : ${sendMessage}</p>`;
+                prevMsg.innerHTML += `<p className="myMessages"> me : ${sendMessage}</p>`;
                 document.getElementById('message').value = "";
             }
         }
@@ -121,19 +285,21 @@
         buttons.forEach(button => {
             button.onclick = function () {
                 const vote = button.innerHTML;
+                document.getElementById('voting').style.display = "none";
                 if (vote === 'yes') {
                     socket.emit('vote', 'yes');
                 } else {
                     socket.emit('vote', 'no');
                 }
             };
+
         });
 
         socket.on('recieveMsg', (name, message) => {
             console.log(name);
             console.log(`recieving message ${message}`);
             const prevMsg = document.getElementById('prevMsg');
-            prevMsg.innerHTML += `<p class = "otherMessage"> ${name}:${message}</p>`;
+            prevMsg.innerHTML += `<p class="otherMessage"> ${name}:${message}</p>`;
         });
 
         socket.on('roomJoined', (name, members) => {
@@ -154,8 +320,8 @@
             questionDiv.innerHTML += `<p> ${question}</p>`
         })
         socket.on('recVote', (yes, no) => {
-            const messagesDiv = document.getElementById('messages');
-            messagesDiv.innerHTML += `${yes} has voted yes and ${no} has voted no`;
+            let voteDiv = document.getElementById('vote');
+            voteDiv.innerHTML = `<bold>${yes}</bold> has voted yes and <bold>${no}</bold> has voted no`;
         })
         socket.on('timeout', () => {
             const messagesDiv = document.getElementById('messages');
